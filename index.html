@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenClaw 模型切换工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #252836;
+      --border: #2e3244;
+      --accent: #6c63ff;
+      --accent-hover: #7c74ff;
+      --accent-dim: rgba(108, 99, 255, 0.15);
+      --text: #e2e4ed;
+      --text-dim: #8b8fa8;
+      --success: #4caf82;
+      --success-dim: rgba(76, 175, 130, 0.15);
+      --danger: #f06060;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      margin-top: 8px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ── Drop Zone ───────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    #drop-zone .icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    #drop-zone .label {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    #drop-zone .sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    #drop-zone.loaded {
+      border-style: solid;
+      border-color: var(--success);
+      background: var(--success-dim);
+    }
+    #drop-zone.loaded .icon::after { content: "✓"; }
+    #file-name {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 500;
+      display: none;
+    }
+
+    /* ── Model List ──────────────────────────────────────────── */
+    #model-section { display: none; }
+
+    .current-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(108,99,255,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+    .current-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .provider-group {
+      margin-bottom: 16px;
+    }
+    .provider-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }
+
+    .model-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 8px;
+      user-select: none;
+    }
+    .model-item:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .model-item.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .model-item input[type="radio"] { display: none; }
+
+    .model-radio {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+    }
+    .model-item.selected .model-radio {
+      border-color: var(--accent);
+    }
+    .model-radio::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .model-item.selected .model-radio::after { opacity: 1; }
+
+    .model-info { flex: 1; min-width: 0; }
+    .model-name {
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .model-id {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: "SF Mono", "Fira Code", monospace;
+      margin-top: 2px;
+    }
+
+    .model-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      background: var(--surface);
+    }
+    .tag.reasoning { color: #f9a825; border-color: rgba(249,168,37,0.3); background: rgba(249,168,37,0.1); }
+    .tag.ctx { color: #29b6f6; border-color: rgba(41,182,246,0.3); background: rgba(41,182,246,0.1); }
+
+    /* ── Alias Input ─────────────────────────────────────────── */
+    #alias-section { display: none; }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-dim);
+    }
+    .field-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field-input:focus { border-color: var(--accent); }
+    .field-hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+    /* ── Diff Preview ────────────────────────────────────────── */
+    #preview-section { display: none; }
+
+    .diff-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      font-size: 13px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .diff-remove { color: var(--danger); }
+    .diff-add { color: var(--success); }
+    .diff-ctx { color: var(--text-dim); }
+
+    /* ── Download Button ─────────────────────────────────────── */
+    #download-section { display: none; }
+
+    .btn-download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 24px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-download:hover { background: var(--accent-hover); }
+    .btn-download:active { transform: scale(0.98); }
+    .btn-download svg { flex-shrink: 0; }
+
+    .download-hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .download-hint code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      background: var(--surface2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--text);
+    }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      white-space: nowrap;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #toast.success { border-color: var(--success); color: var(--success); }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>OpenClaw <span>模型切换</span></h1>
+  <p>上传配置文件，选择默认模型，一键下载更新后的配置</p>
+</header>
+
+<!-- Step 1: Upload -->
+<div class="card">
+  <div class="card-title"><span class="step">1</span>上传配置文件</div>
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".json,application/json" />
+    <span class="icon">📂</span>
+    <div class="label">点击选择或拖拽文件到此处</div>
+    <div class="sub">支持 openclaw.json</div>
+  </div>
+  <div id="file-name"></div>
+</div>
+
+<!-- Step 2: Select Model -->
+<div class="card" id="model-section">
+  <div class="card-title"><span class="step">2</span>选择默认模型</div>
+  <div id="current-model-info"></div>
+  <div id="model-list"></div>
+</div>
+
+<!-- Step 3: Alias -->
+<div class="card" id="alias-section">
+  <div class="card-title"><span class="step">3</span>设置模型别名（可选）</div>
+  <div class="field-label">别名 (alias)</div>
+  <input class="field-input" id="alias-input" type="text" placeholder="例如：Minimax" />
+  <div class="field-hint">别名显示在 agents.defaults.models 中，留空则使用模型名称</div>
+</div>
+
+<!-- Step 4: Preview -->
+<div class="card" id="preview-section">
+  <div class="card-title"><span class="step">4</span>变更预览</div>
+  <div class="diff-box" id="diff-box"></div>
+</div>
+
+<!-- Step 5: Download -->
+<div class="card" id="download-section">
+  <div class="card-title"><span class="step">5</span>下载配置</div>
+  <button class="btn-download" id="download-btn">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    下载 openclaw.json
+  </button>
+  <div class="download-hint">
+    下载后将文件移动到 <code>~/.openclaw/openclaw.json</code> 覆盖原文件，然后重启 OpenClaw 生效。
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let parsedConfig = null;
+  let selectedModelKey = null; // "provider/modelId"
+  let originalPrimary = null;
+
+  // ── File Upload ───────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFile(fileInput.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file.name.endsWith('.json')) {
+      showToast('请上传 .json 文件', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        parsedConfig = JSON.parse(e.target.result);
+        validateConfig(parsedConfig);
+        dropZone.classList.add('loaded');
+        dropZone.querySelector('.icon').textContent = '';
+        dropZone.querySelector('.label').textContent = '文件已加载';
+        const fn = document.getElementById('file-name');
+        fn.textContent = '✓ ' + file.name;
+        fn.style.display = 'block';
+        renderModels();
+        showToast('配置文件加载成功', 'success');
+      } catch (err) {
+        showToast('解析失败：' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function validateConfig(cfg) {
+    if (!cfg.models || !cfg.models.providers) throw new Error('缺少 models.providers 字段');
+    if (!cfg.agents || !cfg.agents.defaults) throw new Error('缺少 agents.defaults 字段');
+  }
+
+  // ── Render Models ─────────────────────────────────────────────
+  function renderModels() {
+    const providers = parsedConfig.models.providers;
+    originalPrimary = parsedConfig?.agents?.defaults?.model?.primary || '';
+
+    const currentInfo = document.getElementById('current-model-info');
+    currentInfo.innerHTML = `
+      <div class="current-badge">
+        <span class="dot"></span>
+        当前默认：${originalPrimary || '未设置'}
+      </div>`;
+
+    const list = document.getElementById('model-list');
+    list.innerHTML = '';
+
+    for (const [providerId, provider] of Object.entries(providers)) {
+      const models = provider.models || [];
+      if (models.length === 0) continue;
+
+      const group = document.createElement('div');
+      group.className = 'provider-group';
+      group.innerHTML = `<div class="provider-label">${providerId}</div>`;
+
+      for (const model of models) {
+        const key = `${providerId}/${model.id}`;
+        const isSelected = key === originalPrimary;
+        if (isSelected) selectedModelKey = key;
+
+        const ctxLabel = model.contextWindow
+          ? (model.contextWindow >= 1000000
+              ? (model.contextWindow / 1000000).toFixed(0) + 'M ctx'
+              : Math.round(model.contextWindow / 1000) + 'K ctx')
+          : null;
+
+        const item = document.createElement('label');
+        item.className = 'model-item' + (isSelected ? ' selected' : '');
+        item.dataset.key = key;
+        item.innerHTML = `
+          <div class="model-radio"></div>
+          <div class="model-info">
+            <div class="model-name">${model.name || model.id}</div>
+            <div class="model-id">${key}</div>
+          </div>
+          <div class="model-tags">
+            ${model.reasoning ? '<span class="tag reasoning">推理</span>' : ''}
+            ${ctxLabel ? `<span class="tag ctx">${ctxLabel}</span>` : ''}
+          </div>`;
+
+        item.addEventListener('click', () => selectModel(key, model));
+        group.appendChild(item);
+      }
+      list.appendChild(group);
+    }
+
+    document.getElementById('model-section').style.display = 'block';
+
+    if (selectedModelKey) {
+      const currentModel = getModelById(selectedModelKey);
+      if (currentModel) prefillAlias(selectedModelKey, currentModel);
+      updatePreviewAndDownload();
+    }
+  }
+
+  function getModelById(key) {
+    const [providerId, modelId] = key.split('/');
+    const provider = parsedConfig?.models?.providers?.[providerId];
+    return provider?.models?.find(m => m.id === modelId) || null;
+  }
+
+  function selectModel(key, model) {
+    selectedModelKey = key;
+    document.querySelectorAll('.model-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.key === key);
+    });
+    prefillAlias(key, model);
+    updatePreviewAndDownload();
+  }
+
+  function prefillAlias(key, model) {
+    const aliasInput = document.getElementById('alias-input');
+    // Use existing alias from config if available, else model name
+    const existing = parsedConfig?.agents?.defaults?.models?.[key]?.alias;
+    aliasInput.value = existing || model.name || model.id;
+
+    document.getElementById('alias-section').style.display = 'block';
+
+    // Re-render preview on alias change
+    aliasInput.oninput = () => updatePreviewAndDownload();
+  }
+
+  // ── Preview ───────────────────────────────────────────────────
+  function updatePreviewAndDownload() {
+    if (!selectedModelKey) return;
+    const alias = document.getElementById('alias-input').value.trim();
+
+    const oldPrimary = originalPrimary;
+    const newPrimary = selectedModelKey;
+    const oldModels = JSON.stringify(parsedConfig?.agents?.defaults?.models || {});
+
+    // Build new models object
+    const newModels = { [newPrimary]: { alias: alias || newPrimary } };
+
+    const diffBox = document.getElementById('diff-box');
+    const lines = [];
+
+    if (oldPrimary !== newPrimary) {
+      lines.push(`<span class="diff-ctx">  "agents.defaults.model.primary":</span>`);
+      lines.push(`<span class="diff-remove">-   "${oldPrimary}"</span>`);
+      lines.push(`<span class="diff-add">+   "${newPrimary}"</span>`);
+      lines.push('');
+    }
+
+    lines.push(`<span class="diff-ctx">  "agents.defaults.models":</span>`);
+    lines.push(`<span class="diff-remove">-   ${oldModels}</span>`);
+    lines.push(`<span class="diff-add">+   ${JSON.stringify(newModels)}</span>`);
+
+    diffBox.innerHTML = lines.join('\n');
+
+    document.getElementById('preview-section').style.display = 'block';
+    document.getElementById('download-section').style.display = 'block';
+  }
+
+  // ── Build Modified Config ─────────────────────────────────────
+  function buildModifiedConfig() {
+    const alias = document.getElementById('alias-input').value.trim();
+    const cfg = JSON.parse(JSON.stringify(parsedConfig)); // deep clone
+
+    // Ensure path exists
+    if (!cfg.agents) cfg.agents = {};
+    if (!cfg.agents.defaults) cfg.agents.defaults = {};
+    if (!cfg.agents.defaults.model) cfg.agents.defaults.model = {};
+
+    cfg.agents.defaults.model.primary = selectedModelKey;
+    cfg.agents.defaults.models = {
+      [selectedModelKey]: { alias: alias || selectedModelKey }
+    };
+
+    return cfg;
+  }
+
+  // ── Download ──────────────────────────────────────────────────
+  document.getElementById('download-btn').addEventListener('click', () => {
+    if (!selectedModelKey) { showToast('请先选择一个模型', 'error'); return; }
+
+    const modified = buildModifiedConfig();
+    const blob = new Blob([JSON.stringify(modified, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'openclaw.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('已下载 openclaw.json', 'success');
+  });
+
+  // ── Toast ─────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+  }
+</script>
+</body>
+</html>
